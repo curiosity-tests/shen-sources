@@ -1,4 +1,5 @@
 name: Compatibility and Tests
+run-name: "Compatibility and Tests ${{ inputs.leg || github.event_name }} ${{ inputs.racecar_run }}"
 
 on:
   pull_request:
@@ -6,7 +7,24 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: baseline
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
 
+
+env:
+  CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 permissions:
   contents: read
 
@@ -20,6 +38,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Resolve latest shen-scheme release
+        continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         id: latest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -130,6 +149,7 @@ jobs:
           cp klambda/*.kl _compat/shen-scheme/kl/
 
       - name: Precompile matching shen-scheme release with current kernel
+        continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         run: |
           set -euo pipefail
           make -C _compat/shen-scheme SHEN="$PWD/_compat/host-shen/bin/shen-scheme" precompile
