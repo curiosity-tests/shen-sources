@@ -26,6 +26,7 @@ on:
 env:
   CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 permissions:
+  id-token: write
   contents: read
 
 jobs:
@@ -35,8 +36,16 @@ jobs:
 
     steps:
       - name: Check out kernel repository
-        uses: actions/checkout@v4
-
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        continue-on-error: true
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::warning::CURIOSITY_ROOT unset in this step - in a container job the observables install on the host"; exit 1; }
       - name: Resolve latest shen-scheme release
         continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         id: latest
@@ -78,12 +87,19 @@ jobs:
           echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
 
       - name: Check out matching shen-scheme source
-        uses: actions/checkout@v4
+        uses: crashappsec/action-checkout@main
         with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          lfs: false
           repository: tizoc/shen-scheme
           ref: ${{ steps.latest.outputs.tag }}
           path: _compat/shen-scheme
-
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        continue-on-error: true
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::warning::CURIOSITY_ROOT unset in this step - in a container job the observables install on the host"; exit 1; }
       - name: Resolve matching Chez Scheme version
         id: chez
         run: |
